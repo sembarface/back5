@@ -2,7 +2,6 @@
 session_start();
 require 'db.php';
 
-// Если пользователь уже авторизован - перенаправляем
 if (!empty($_SESSION['login'])) {
     header('Location: index.php');
     exit();
@@ -10,7 +9,6 @@ if (!empty($_SESSION['login'])) {
 
 $messages = [];
 
-// Обработка формы входа
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $login = $_POST['login'] ?? '';
     $pass = $_POST['pass'] ?? '';
@@ -27,10 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             header('Location: index.php');
             exit();
         } else {
-            $messages[] = '<div class="error">Неверный логин или пароль</div>';
+            $messages[] = '<div class="alert alert-danger">Неверный логин или пароль</div>';
         }
     } catch (PDOException $e) {
-        $messages[] = '<div class="error">Ошибка входа: '.htmlspecialchars($e->getMessage()).'</div>';
+        $messages[] = '<div class="alert alert-danger">Ошибка входа: '.htmlspecialchars($e->getMessage()).'</div>';
     }
 }
 ?>
@@ -46,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php if (!empty($messages)): ?>
             <div class="mb-3">
                 <?php foreach ($messages as $message): ?>
-                    <?php echo $message; ?>
+                    <?= $message ?>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
