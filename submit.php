@@ -44,9 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     foreach ($validation_rules as $field => $rule) {
         $value = $_POST[$field] ?? '';
         
-        if ($field === 'languages') {
-            $value = implode(',', $_POST['languages'] ?? []);
-        } elseif ($field === 'contract_accepted') {
+        if ($field === 'contract_accepted') {
             $value = isset($_POST['contract_accepted']) ? '1' : '0';
         }
         
@@ -72,12 +70,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt = $pdo->prepare("UPDATE applications SET 
                 name = :name, phone = :phone, email = :email, 
                 birthdate = :birthdate, gender = :gender, 
-                languages = :languages, bio = :bio, 
-                contract_accepted = :contract_accepted 
+                bio = :bio, contract_accepted = :contract_accepted 
                 WHERE id = :id");
             
             $data['id'] = $_SESSION['uid'];
             $stmt->execute($data);
+            
+            // Удаляем старые языки
+            $pdo->prepare("DELETE FROM application_languages WHERE application_id = ?")
+                ->execute([$_SESSION['uid']]);
         } else {
             // Создание новой записи
             $login = uniqid('user_');
@@ -85,15 +86,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $pass_hash = password_hash($pass, PASSWORD_DEFAULT);
             
             $stmt = $pdo->prepare("INSERT INTO applications 
-                (name, phone, email, birthdate, gender, languages, bio, contract_accepted, login, pass_hash) 
-                VALUES (:name, :phone, :email, :birthdate, :gender, :languages, :bio, :contract_accepted, :login, :pass_hash)");
+                (name, phone, email, birthdate, gender, bio, contract_accepted, login, pass_hash) 
+                VALUES (:name, :phone, :email, :birthdate, :gender, :bio, :contract_accepted, :login, :pass_hash)");
             
             $data['login'] = $login;
             $data['pass_hash'] = $pass_hash;
             $stmt->execute($data);
+            $app_id = $pdo->lastInsertId();
             
             setcookie('login', $login, time() + 24 * 60 * 60);
             setcookie('pass', $pass, time() + 24 * 60 * 60);
+        }
+        
+        // Добавляем выбранные языки
+        $app_id = $_SESSION['uid'] ?? $app_id;
+        $lang_stmt = $pdo->prepare("INSERT INTO application_languages (application_id, language_id) 
+            SELECT ?, id FROM languages WHERE name = ?");
+        
+        foreach ($_POST['languages'] as $lang) {
+            $lang_stmt->execute([$app_id, $lang]);
         }
         
         setcookie('save', '1', time() + 24 * 60 * 60);
