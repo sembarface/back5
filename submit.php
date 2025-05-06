@@ -3,6 +3,27 @@ session_start();
 require 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // Проверка существования таблицы applications с нужными полями
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS applications (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                login VARCHAR(50) UNIQUE,
+                pass_hash VARCHAR(255),
+                name VARCHAR(150) NOT NULL,
+                phone VARCHAR(20) NOT NULL,
+                email VARCHAR(100) NOT NULL,
+                birthdate DATE NOT NULL,
+                gender ENUM('male','female','other') NOT NULL,
+                bio TEXT,
+                contract_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB
+        ");
+    } catch (PDOException $e) {
+        die("Ошибка создания таблицы: " . $e->getMessage());
+    }
+
     $validation_rules = [
         'name' => [
             'pattern' => '/^[a-zA-Zа-яА-ЯёЁ\s]{1,150}$/u',
@@ -74,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     try {
-        // Подготовка данных для сохранения (без languages)
+        // Подготовка данных для сохранения
         $db_data = [
             'name' => $data['name'],
             'phone' => $data['phone'],
