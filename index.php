@@ -31,13 +31,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
 
     if (!empty($_SESSION['login'])) {
         try {
-            $stmt = $pdo->prepare("SELECT * FROM applications WHERE login = ?");
+            $stmt = $pdo->prepare("SELECT a.*, GROUP_CONCAT(l.name) as languages 
+                FROM applications a
+                LEFT JOIN application_languages al ON a.id = al.application_id
+                LEFT JOIN languages l ON al.language_id = l.id
+                WHERE a.login = ? 
+                GROUP BY a.id");
             $stmt->execute([$_SESSION['login']]);
             $user_data = $stmt->fetch();
             
             if ($user_data) {
                 $values = array_merge($values, $user_data);
-                $values['languages'] = explode(',', $user_data['languages']);
+                $values['languages'] = $user_data['languages'] ? explode(',', $user_data['languages']) : [];
             }
         } catch (PDOException $e) {
             $messages[] = '<div class="alert alert-danger">Ошибка загрузки данных: '.htmlspecialchars($e->getMessage()).'</div>';
