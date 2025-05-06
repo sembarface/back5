@@ -41,13 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = [];
     
     foreach ($validation_rules as $field => $rule) {
-        $value = $_POST[$field] ?? '';
-        
-        if ($field === 'contract_accepted') {
-            $value = isset($_POST['contract_accepted']) ? '1' : '0';
-        }
-        
-        // Особый случай для languages
         if ($field === 'languages') {
             if (empty($_POST['languages'])) {
                 $errors[$field] = $rule['message'];
@@ -58,9 +51,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             continue;
         }
         
+        $value = $_POST[$field] ?? '';
+        
+        if ($field === 'contract_accepted') {
+            $value = isset($_POST['contract_accepted']) ? '1' : '0';
+        }
+        
         $data[$field] = $value;
         
-        if (!preg_match($rule['pattern'], $value)) {
+        if ($field !== 'languages' && !preg_match($rule['pattern'], $value)) {
             $errors[$field] = $rule['message'];
             setcookie($field.'_error', $rule['message'], time() + 24 * 60 * 60);
         } else {
@@ -75,16 +74,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     try {
+        // Подготовка данных для сохранения (без languages)
+        $db_data = [
+            'name' => $data['name'],
+            'phone' => $data['phone'],
+            'email' => $data['email'],
+            'birthdate' => $data['birthdate'],
+            'gender' => $data['gender'],
+            'bio' => $data['bio'],
+            'contract_accepted' => $data['contract_accepted']
+        ];
+
         if (!empty($_SESSION['login'])) {
             // Обновление существующей записи
+            $db_data['id'] = $_SESSION['uid'];
             $stmt = $pdo->prepare("UPDATE applications SET 
                 name = :name, phone = :phone, email = :email, 
                 birthdate = :birthdate, gender = :gender, 
                 bio = :bio, contract_accepted = :contract_accepted 
                 WHERE id = :id");
-            
-            $data['id'] = $_SESSION['uid'];
-            $stmt->execute($data);
+            $stmt->execute($db_data);
             
             // Удаляем старые языки
             $pdo->prepare("DELETE FROM application_languages WHERE application_id = ?")
@@ -95,13 +104,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $pass = bin2hex(random_bytes(4));
             $pass_hash = password_hash($pass, PASSWORD_DEFAULT);
             
+            $db_data['login'] = $login;
+            $db_data['pass_hash'] = $pass_hash;
+            
             $stmt = $pdo->prepare("INSERT INTO applications 
                 (name, phone, email, birthdate, gender, bio, contract_accepted, login, pass_hash) 
                 VALUES (:name, :phone, :email, :birthdate, :gender, :bio, :contract_accepted, :login, :pass_hash)");
-            
-            $data['login'] = $login;
-            $data['pass_hash'] = $pass_hash;
-            $stmt->execute($data);
+            $stmt->execute($db_data);
             $app_id = $pdo->lastInsertId();
             
             setcookie('login', $login, time() + 24 * 60 * 60);
