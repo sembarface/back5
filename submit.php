@@ -48,6 +48,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $value = isset($_POST['contract_accepted']) ? '1' : '0';
         }
         
+        // Особый случай для languages - проверяем, что массив не пустой
+        if ($field === 'languages') {
+            if (empty($_POST['languages']) {
+                $errors[$field] = $rule['message'];
+                setcookie($field.'_error', $rule['message'], time() + 24 * 60 * 60);
+                continue;
+            }
+            $data[$field] = $_POST['languages']; // Сохраняем как массив
+            continue;
+        }
+        
         $data[$field] = $value;
         
         if (!preg_match($rule['pattern'], $value)) {
@@ -103,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $lang_stmt = $pdo->prepare("INSERT INTO application_languages (application_id, language_id) 
             SELECT ?, id FROM languages WHERE name = ?");
         
-        foreach ($_POST['languages'] as $lang) {
+        foreach ($data['languages'] as $lang) {
             $lang_stmt->execute([$app_id, $lang]);
         }
         
