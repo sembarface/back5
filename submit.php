@@ -25,7 +25,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             'message' => 'Выберите пол из предложенных вариантов'
         ],
         'languages' => [
-            'pattern' => '/^.+$/',
             'message' => 'Выберите хотя бы один язык программирования'
         ],
         'bio' => [
@@ -48,14 +47,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $value = isset($_POST['contract_accepted']) ? '1' : '0';
         }
         
-        // Особый случай для languages - проверяем, что массив не пустой
+        // Особый случай для languages
         if ($field === 'languages') {
-            if (empty($_POST['languages']) {
+            if (empty($_POST['languages'])) {
                 $errors[$field] = $rule['message'];
                 setcookie($field.'_error', $rule['message'], time() + 24 * 60 * 60);
-                continue;
+            } else {
+                $data[$field] = $_POST['languages'];
             }
-            $data[$field] = $_POST['languages']; // Сохраняем как массив
             continue;
         }
         
