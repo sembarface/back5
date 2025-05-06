@@ -2,14 +2,11 @@
 session_start();
 require 'db.php';
 
-// Обработка сообщений и ошибок
 $messages = [];
 $errors = [];
 $values = [];
 
-// Обработка GET запроса
 if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-    // Сообщения об успешном сохранении
     if (!empty($_COOKIE['save'])) {
         setcookie('save', '', time() - 3600);
         $messages[] = 'Спасибо, результаты сохранены.';
@@ -23,17 +20,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
         }
     }
 
-    // Ошибки валидации
     $field_names = ['name', 'phone', 'email', 'birthdate', 'gender', 'languages', 'bio', 'contract_accepted'];
     foreach ($field_names as $field) {
-        $errors[$field] = !empty($_COOKIE[$field.'_error']);
-        if ($errors[$field]) {
+        $errors[$field] = !empty($_COOKIE[$field.'_error']) ? $_COOKIE[$field.'_error'] : '';
+        if (!empty($errors[$field])) {
             setcookie($field.'_error', '', time() - 3600);
         }
         $values[$field] = empty($_COOKIE[$field.'_value']) ? '' : $_COOKIE[$field.'_value'];
     }
 
-    // Если пользователь авторизован - загружаем его данные
     if (!empty($_SESSION['login'])) {
         try {
             $stmt = $pdo->prepare("SELECT * FROM applications WHERE login = ?");
@@ -45,12 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
                 $values['languages'] = explode(',', $user_data['languages']);
             }
         } catch (PDOException $e) {
-            $messages[] = '<div class="error">Ошибка загрузки данных: '.htmlspecialchars($e->getMessage()).'</div>';
+            $messages[] = '<div class="alert alert-danger">Ошибка загрузки данных: '.htmlspecialchars($e->getMessage()).'</div>';
         }
     }
 }
-
-// Остальная часть HTML (как в вашем исходном файле)
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -233,24 +226,40 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
         </div>
 
         <div class="forma m-2 p-2 m-md-3" id="forma">
-    <h1>Форма</h1>
-    
-    <?php if (isset($_GET['success'])): ?>
-        <div class="success-message">Данные успешно сохранены!</div>
-    <?php endif; ?>
-    
-    <?php if (!empty($errors)): ?>
-        <div class="error-list">
-            <h3>Обнаружены ошибки:</h3>
-            <ul>
-                <?php foreach ($errors as $field => $error): ?>
-                    <li><?php echo htmlspecialchars($error); ?></li>
+        <h1>Форма</h1>
+        
+        <?php if (!empty($messages)): ?>
+            <div class="mb-3">
+                <?php foreach ($messages as $message): ?>
+                    <div class="alert alert-info"><?= $message ?></div>
                 <?php endforeach; ?>
-            </ul>
-        </div>
-    <?php endif; ?>
-    
-    <form action="submit.php" method="POST">
+            </div>
+        <?php endif; ?>
+        
+        <?php 
+        $has_errors = false;
+        foreach ($errors as $error) {
+            if (!empty($error)) {
+                $has_errors = true;
+                break;
+            }
+        }
+        ?>
+        
+        <?php if ($has_errors): ?>
+            <div class="alert alert-danger mb-3">
+                <h4>Обнаружены ошибки:</h4>
+                <ul class="mb-0">
+                    <?php foreach ($errors as $field => $error): ?>
+                        <?php if (!empty($error)): ?>
+                            <li><?= htmlspecialchars($error) ?></li>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+        
+        <form action="submit.php" method="POST">
         <!-- ФИО -->
         <div class="form-group">
             <label for="name">ФИО:</label>
@@ -364,13 +373,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             <?php endif; ?>
         </div>
 
-        <button type="submit" name="save" class="btn btn-primary">Сохранить</button>
-        
-        <?php if (!empty($_SESSION['login'])): ?>
-            <a href="logout.php" class="btn btn-danger ml-2">Выйти</a>
-        <?php endif; ?>
-    </form>
-</div>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+            
+            <?php if (!empty($_SESSION['login'])): ?>
+                <a href="logout.php" class="btn btn-danger ml-2">Выйти</a>
+            <?php endif; ?>
+        </form>
+    </div>
 
         <h1 id="important">МЕНЯ ЗОВУТ ВОЛОДЯ</h1>
     </div>
