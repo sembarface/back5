@@ -18,7 +18,6 @@ try {
             email VARCHAR(100) NOT NULL,
             birthdate DATE NOT NULL,
             gender ENUM('male','female','other') NOT NULL,
-            languages VARCHAR(255),
             bio TEXT,
             contract_accepted BOOLEAN NOT NULL DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
