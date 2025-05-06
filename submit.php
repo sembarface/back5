@@ -2,22 +2,46 @@
 session_start();
 require 'db.php';
 
-// Обработка POST запроса
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Валидация данных
     $validation_rules = [
-        'name' => '/^[a-zA-Zа-яА-ЯёЁ\s]{1,150}$/u',
-        'phone' => '/^\+?\d[\d\s\-\(\)]{6,}\d$/',
-        'email' => '/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i',
-        'birthdate' => '/^\d{4}-\d{2}-\d{2}$/',
-        'gender' => '/^(male|female|other)$/',
-        'languages' => '/^.+$/',
-        'bio' => '/^[\s\S]{10,2000}$/',
-        'contract_accepted' => '/^1$/'
+        'name' => [
+            'pattern' => '/^[a-zA-Zа-яА-ЯёЁ\s]{1,150}$/u',
+            'message' => 'ФИО должно содержать только буквы и пробелы (макс. 150 символов)'
+        ],
+        'phone' => [
+            'pattern' => '/^\+?\d[\d\s\-\(\)]{6,}\d$/',
+            'message' => 'Неверный формат телефона'
+        ],
+        'email' => [
+            'pattern' => '/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i',
+            'message' => 'Введите корректный email'
+        ],
+        'birthdate' => [
+            'pattern' => '/^\d{4}-\d{2}-\d{2}$/',
+            'message' => 'Дата должна быть в формате ГГГГ-ММ-ДД'
+        ],
+        'gender' => [
+            'pattern' => '/^(male|female|other)$/',
+            'message' => 'Выберите пол из предложенных вариантов'
+        ],
+        'languages' => [
+            'pattern' => '/^.+$/',
+            'message' => 'Выберите хотя бы один язык программирования'
+        ],
+        'bio' => [
+            'pattern' => '/^[\s\S]{10,2000}$/',
+            'message' => 'Биография должна содержать от 10 до 2000 символов'
+        ],
+        'contract_accepted' => [
+            'pattern' => '/^1$/',
+            'message' => 'Необходимо принять условия контракта'
+        ]
     ];
 
-    $errors = false;
-    foreach ($validation_rules as $field => $pattern) {
+    $errors = [];
+    $data = [];
+    
+    foreach ($validation_rules as $field => $rule) {
         $value = $_POST[$field] ?? '';
         
         if ($field === 'languages') {
@@ -26,84 +50,57 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $value = isset($_POST['contract_accepted']) ? '1' : '0';
         }
         
-        if (!preg_match($pattern, $value)) {
-            setcookie($field.'_error', '1', time() + 24 * 60 * 60);
-            $errors = true;
+        $data[$field] = $value;
+        
+        if (!preg_match($rule['pattern'], $value)) {
+            $errors[$field] = $rule['message'];
+            setcookie($field.'_error', $rule['message'], time() + 24 * 60 * 60);
         } else {
             setcookie($field.'_value', $value, time() + 30 * 24 * 60 * 60);
         }
     }
 
-    // Дополнительная проверка даты
-    if (empty($errors['birthdate'])) {
-        $birthdate = DateTime::createFromFormat('Y-m-d', $_POST['birthdate']);
-        if ($birthdate > new DateTime()) {
-            setcookie('birthdate_error', '1', time() + 24 * 60 * 60);
-            $errors = true;
-        }
-    }
-
-    if ($errors) {
+    if (!empty($errors)) {
+        setcookie('form_errors', json_encode($errors), time() + 24 * 60 * 60, '/');
         header('Location: index.php');
         exit();
     }
 
-    // Подготовка данных для сохранения
-    $data = [
-        'name' => $_POST['name'],
-        'phone' => $_POST['phone'],
-        'email' => $_POST['email'],
-        'birthdate' => $_POST['birthdate'],
-        'gender' => $_POST['gender'],
-        'languages' => implode(',', $_POST['languages'] ?? []),
-        'bio' => $_POST['bio'],
-        'contract_accepted' => isset($_POST['contract_accepted']) ? 1 : 0
-    ];
-
-    // Если пользователь авторизован - обновляем данные
-    if (!empty($_SESSION['login'])) {
-        try {
+    try {
+        if (!empty($_SESSION['login'])) {
+            // Обновление существующей записи
             $stmt = $pdo->prepare("UPDATE applications SET 
                 name = :name, phone = :phone, email = :email, 
                 birthdate = :birthdate, gender = :gender, 
                 languages = :languages, bio = :bio, 
                 contract_accepted = :contract_accepted 
-                WHERE login = :login");
+                WHERE id = :id");
             
-            $data['login'] = $_SESSION['login'];
+            $data['id'] = $_SESSION['uid'];
             $stmt->execute($data);
+        } else {
+            // Создание новой записи
+            $login = uniqid('user_');
+            $pass = bin2hex(random_bytes(4));
+            $pass_hash = password_hash($pass, PASSWORD_DEFAULT);
             
-            setcookie('save', '1');
-        } catch (PDOException $e) {
-            die("Ошибка обновления данных: " . $e->getMessage());
-        }
-    } 
-    // Иначе создаем нового пользователя
-    else {
-        // Генерация логина и пароля
-        $login = uniqid('user_');
-        $pass = bin2hex(random_bytes(4));
-        $pass_hash = password_hash($pass, PASSWORD_DEFAULT);
-        
-        try {
             $stmt = $pdo->prepare("INSERT INTO applications 
-                (login, pass_hash, name, phone, email, birthdate, gender, languages, bio, contract_accepted) 
-                VALUES (:login, :pass_hash, :name, :phone, :email, :birthdate, :gender, :languages, :bio, :contract_accepted)");
+                (name, phone, email, birthdate, gender, languages, bio, contract_accepted, login, pass_hash) 
+                VALUES (:name, :phone, :email, :birthdate, :gender, :languages, :bio, :contract_accepted, :login, :pass_hash)");
             
             $data['login'] = $login;
             $data['pass_hash'] = $pass_hash;
             $stmt->execute($data);
             
-            // Сохраняем логин и пароль в куки для показа пользователю
             setcookie('login', $login, time() + 24 * 60 * 60);
             setcookie('pass', $pass, time() + 24 * 60 * 60);
-            setcookie('save', '1');
-        } catch (PDOException $e) {
-            die("Ошибка сохранения данных: " . $e->getMessage());
         }
+        
+        setcookie('save', '1', time() + 24 * 60 * 60);
+        header('Location: index.php?success=1');
+        exit();
+    } catch (PDOException $e) {
+        die("Ошибка сохранения данных: " . $e->getMessage());
     }
-
-    header('Location: index.php');
-    exit();
 }
 ?>
