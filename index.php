@@ -105,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
                 <div class="move mx-2"><a href ="#hiper">Список гиперссылок </a></div>
                 <div class="move mx-2"><a href ="#tabl">Таблица </a></div>
                 <div class="move mx-2"><a href ="#forma">Форма</a></div>
+                <div class="move mx-2"><a href ="login.php">ЗАЛОГИНИТСЯ</a></div>
             </nav>
         </div>
     </header>
